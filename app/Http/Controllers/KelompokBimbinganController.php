@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 
 class KelompokBimbinganController extends Controller
 {
+    //Liat contoh API CRUD di JurusanController
+    
     // Belva
     public function getAll()
     {
@@ -30,13 +32,5 @@ class KelompokBimbinganController extends Controller
         //
     }
 
-    // Shodiq
-    public function getFromPembimbing(){
-
-    }
-
-    // Famuwa
-    public function getFromSiswa(){
-
-    }
+    
 }
