@@ -123,4 +123,7 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    'nodejs_api_url' => env('NODEJS_API_URL', 'tes'),
+    'ACCESS_TOKEN_SECRET' => env('ACCESS_TOKEN_SECRET', 'tes'),
+
 ];
