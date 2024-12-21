@@ -7,7 +7,6 @@ use App\Models\Jurusan;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
 class JurusanController extends Controller

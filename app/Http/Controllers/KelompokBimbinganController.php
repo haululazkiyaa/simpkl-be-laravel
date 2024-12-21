@@ -12,10 +12,10 @@ use Illuminate\Support\Facades\Validator;
 
 class KelompokBimbinganController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    //Liat contoh API CRUD di JurusanController
+    
+    // Belva
+    public function getAll()
     {
         try {
             $dataKelompokBimbingan = Jurusan::all();
@@ -36,10 +36,8 @@ class KelompokBimbinganController extends Controller
         }
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
+    // Belva
+    public function create(Request $request)
     {
         $response = new BaseResponse();
 
@@ -174,27 +172,17 @@ class KelompokBimbinganController extends Controller
     }
     
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
+    // Belva
+    public function update(Request $request)
     {
         //
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
+    // Belva
+    public function delete(Request $request)
     {
         //
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        //
-    }
+    
 }
