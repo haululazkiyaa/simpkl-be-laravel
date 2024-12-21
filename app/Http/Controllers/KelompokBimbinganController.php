@@ -3,9 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\BaseResponse;
+use App\Models\Absensi;
+use App\Models\Guru;
 use App\Models\Instruktur;
+use App\Models\Jurnal;
 use App\Models\Jurusan;
 use App\Models\KelompokBimbingan;
+use App\Models\Perusahaan;
+use App\Models\Siswa;
 use App\Models\TahunAjaran;
 use Exception;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +26,13 @@ class KelompokBimbinganController extends Controller
     public function getAll()
     {
         try {
-            $dataKelompokBimbingan = KelompokBimbingan::all();
+            $dataKelompokBimbingan = KelompokBimbingan::with([
+                'siswa',
+                'perusahaan',
+                'guru_pembimbing',
+                'instruktur'
+            ])
+            ->get();
 
             $response = new BaseResponse(
                 success: true,
@@ -46,10 +57,10 @@ class KelompokBimbinganController extends Controller
 
         try {
             $validator = Validator::make($request->all(), [
-                'id_siswa' => 'required|string',
-                'id_guru_pembimbing' => 'required|string',
-                'id_perusahaan' => 'required|string',
-                'id_instruktur' => 'nullable|string'
+                'id_siswa' => 'required|uuid',
+                'id_guru_pembimbing' => 'required|uuid',
+                'id_perusahaan' => 'required|uuid',
+                'id_instruktur' => 'nullable|uuid'
             ]);
 
             if ($validator->fails()) {
@@ -75,7 +86,7 @@ class KelompokBimbinganController extends Controller
             }
 
             // Check Guru Pembimbing
-            $guruPembimbing = GuruPembimbing::find($data['id_guru_pembimbing']);
+            $guruPembimbing = Guru::find($data['id_guru_pembimbing']);
             if (!$guruPembimbing) {
                 $response->success = false;
                 $response->message = "Data guru pembimbing tidak terdaftar...";
@@ -183,11 +194,11 @@ class KelompokBimbinganController extends Controller
 
         try {
             $validator = Validator::make($request->all(), [
-                'id' => 'required|string',
-                'id_siswa' => 'nullable|string',
-                'id_guru_pembimbing' => 'nullable|string',
-                'id_perusahaan' => 'nullable|string',
-                'id_instruktur' => 'nullable|string',
+                'id' => 'required|uuid',
+                'id_siswa' => 'nullable|uuid',
+                'id_guru_pembimbing' => 'nullable|uuid',
+                'id_perusahaan' => 'nullable|uuid',
+                'id_instruktur' => 'nullable|uuid',
                 'status' => 'nullable|boolean',
             ]);
 
@@ -209,7 +220,7 @@ class KelompokBimbinganController extends Controller
 
             // Check Guru Pembimbing if provided
             if (!empty($data['id_guru_pembimbing'])) {
-                $guruPembimbing = GuruPembimbing::find($data['id_guru_pembimbing']);
+                $guruPembimbing = Guru::find($data['id_guru_pembimbing']);
                 
                 if (!$guruPembimbing) {
                     $response->success = false;
@@ -234,7 +245,7 @@ class KelompokBimbinganController extends Controller
                     return response()->json($response->toArray(), 400);
                 }
 
-                if ($perusahaan->status != Constants::AKTIF) {
+                if ($perusahaan->status != "Aktif") {
                     $response->success = false;
                     $response->message = "Data perusahaan tidak aktif...";
                     return response()->json($response->toArray(), 400);
@@ -285,7 +296,7 @@ class KelompokBimbinganController extends Controller
 
                 if ($activeKelompok) {
                     $activeKelompok->status = false;
-                    $activeKelompok->updated_by = auth()->user()->username;
+                    $activeKelompok->updated_by = $request->usernameUser;
                     
                     if (!$activeKelompok->save()) {
                         DB::rollBack();
@@ -302,9 +313,9 @@ class KelompokBimbinganController extends Controller
                 'id_perusahaan' => $data['id_perusahaan'] ?? null,
                 'id_instruktur' => $data['id_instruktur'] ?? null,
                 'status' => $data['status'] ?? null,
-                'updated_by' => auth()->user()->username
+                'updated_by' => $request->usernameUser
             ]);
-
+            
             $kelompokBimbingan->update($updateData);
 
             DB::commit();
@@ -330,7 +341,7 @@ class KelompokBimbinganController extends Controller
 
         try {
             $validator = Validator::make($request->all(), [
-                'id' => 'required|string'
+                'id' => 'required|uuid'
             ]);
 
             if ($validator->fails()) {
@@ -353,7 +364,7 @@ class KelompokBimbinganController extends Controller
             $absensi = Absensi::where('id_bimbingan', $kelompokBimbingan->id)->first();
             
             // Check related Jurnal Harian
-            $jurnalHarian = JurnalHarian::where('id_bimbingan', $kelompokBimbingan->id)->first();
+            $jurnalHarian = Jurnal::where('id_bimbingan', $kelompokBimbingan->id)->first();
 
             // Check if related data exists
             if ($absensi || $jurnalHarian) {

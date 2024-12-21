@@ -25,11 +25,10 @@ Route::prefix('auth')->group(function () {
 });
 
 Route::prefix('kelompok-bimbingan')->middleware([CheckToken::class])->group(function () {
-    Route::get('/', [KelompokBimbinganController::class, 'index']);
-    Route::post('/', [KelompokBimbinganController::class, 'store']);
-    Route::get('/{id}', [KelompokBimbinganController::class, 'show']);
-    Route::put('/{id}', [KelompokBimbinganController::class, 'update']);
-    Route::delete('/{id}', [KelompokBimbinganController::class, 'destroy']);
+    Route::get('/all', [KelompokBimbinganController::class, 'getAll'])->middleware([CheckUserRole::class.':ADMINSEKOLAH']);
+    Route::post('/create', [KelompokBimbinganController::class, 'create'])->middleware([CheckUserRole::class.':ADMINSEKOLAH']);
+    Route::put('/update', [KelompokBimbinganController::class, 'update'])->middleware([CheckUserRole::class.':ADMINSEKOLAH']);
+    Route::delete('/delete', [KelompokBimbinganController::class, 'delete'])->middleware([CheckUserRole::class.':ADMINSEKOLAH']);
 });
 
 Route::prefix('jurusan')->middleware([CheckToken::class])->group(function () {

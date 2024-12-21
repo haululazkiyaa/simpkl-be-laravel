@@ -41,8 +41,18 @@ class KelompokBimbingan extends Model
         return $this->belongsTo(Guru::class, 'id_guru_pembimbing');
     }
 
+    public function guru_pembimbing()
+    {
+        return $this->belongsTo(Guru::class, 'id_guru_pembimbing');
+    }
+
     public function perusahaan()
     {
         return $this->belongsTo(Perusahaan::class, 'id_perusahaan');
+    }
+
+    public function instruktur()
+    {
+        return $this->belongsTo(Instruktur::class, 'id_instruktur');
     }
 }
