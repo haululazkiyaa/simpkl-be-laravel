@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\BaseResponse;
+use App\Models\Instruktur;
 use App\Models\Jurusan;
+use App\Models\KelompokBimbingan;
+use App\Models\TahunAjaran;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
@@ -18,7 +21,7 @@ class KelompokBimbinganController extends Controller
     public function getAll()
     {
         try {
-            $dataKelompokBimbingan = Jurusan::all();
+            $dataKelompokBimbingan = KelompokBimbingan::all();
 
             $response = new BaseResponse(
                 success: true,
@@ -93,7 +96,7 @@ class KelompokBimbinganController extends Controller
                 return response()->json($response->toArray(), 400);
             }
 
-            if ($perusahaan->status !== Constants::AKTIF) {
+            if ($perusahaan->status !== "Aktif") {
                 $response->success = false;
                 $response->message = "Data perusahaan tidak aktif...";
                 return response()->json($response->toArray(), 400);
@@ -155,7 +158,7 @@ class KelompokBimbinganController extends Controller
                 'id_instruktur' => $data['id_instruktur'] ?? null,
                 'id_tahun_ajaran' => $tahunAjaran->id,
                 'status' => $status,
-                'created_by' => auth()->user()->username // Assuming you have authentication
+                'created_by' => $request->usernameUser,
             ]);
 
             $response->success = true;
@@ -175,13 +178,209 @@ class KelompokBimbinganController extends Controller
     // Belva
     public function update(Request $request)
     {
-        //
+        $response = new BaseResponse();
+        DB::beginTransaction();
+
+        try {
+            $validator = Validator::make($request->all(), [
+                'id' => 'required|string',
+                'id_siswa' => 'nullable|string',
+                'id_guru_pembimbing' => 'nullable|string',
+                'id_perusahaan' => 'nullable|string',
+                'id_instruktur' => 'nullable|string',
+                'status' => 'nullable|boolean',
+            ]);
+
+            if ($validator->fails()) {
+                $response->success = false;
+                $response->message = $validator->errors()->first();
+                return response()->json($response->toArray(), 400);
+            }
+
+            $data = $validator->validated();
+
+            // Check existing Kelompok Bimbingan
+            $kelompokBimbingan = KelompokBimbingan::find($data['id']);
+            if (!$kelompokBimbingan) {
+                $response->success = false;
+                $response->message = "Data kelompok bimbingan tidak ditemukan...";
+                return response()->json($response->toArray(), 404);
+            }
+
+            // Check Guru Pembimbing if provided
+            if (!empty($data['id_guru_pembimbing'])) {
+                $guruPembimbing = GuruPembimbing::find($data['id_guru_pembimbing']);
+                
+                if (!$guruPembimbing) {
+                    $response->success = false;
+                    $response->message = "Data guru pembimbing tidak terdaftar...";
+                    return response()->json($response->toArray(), 400);
+                }
+
+                if (!$guruPembimbing->status_aktif) {
+                    $response->success = false;
+                    $response->message = "Data guru pembimbing sudah tidak aktif...";
+                    return response()->json($response->toArray(), 400);
+                }
+            }
+
+            // Check Perusahaan if provided
+            if (!empty($data['id_perusahaan'])) {
+                $perusahaan = Perusahaan::find($data['id_perusahaan']);
+                
+                if (!$perusahaan) {
+                    $response->success = false;
+                    $response->message = "Data perusahaan tidak terdaftar...";
+                    return response()->json($response->toArray(), 400);
+                }
+
+                if ($perusahaan->status != Constants::AKTIF) {
+                    $response->success = false;
+                    $response->message = "Data perusahaan tidak aktif...";
+                    return response()->json($response->toArray(), 400);
+                }
+
+                // Check if student already registered in this company
+                $existingKelompok = KelompokBimbingan::where('id_siswa', $kelompokBimbingan->id_siswa)
+                    ->where('id_perusahaan', $data['id_perusahaan'])
+                    ->first();
+
+                if ($existingKelompok && $existingKelompok->id != $data['id']) {
+                    $response->success = false;
+                    $response->message = "Siswa ini sudah pernah terdaftar pada perusahaan ini sebelumnya...";
+                    return response()->json($response->toArray(), 400);
+                }
+            }
+
+            // Check Instruktur if provided
+            if (!empty($data['id_instruktur'])) {
+                $instruktur = Instruktur::find($data['id_instruktur']);
+                
+                if (!$instruktur) {
+                    $response->success = false;
+                    $response->message = "Data instruktur tidak terdaftar...";
+                    return response()->json($response->toArray(), 400);
+                }
+
+                $perusahaanId = $data['id_perusahaan'] ?? $kelompokBimbingan->id_perusahaan;
+
+                if ($instruktur->id_perusahaan != $perusahaanId) {
+                    $response->success = false;
+                    $response->message = "Data instruktur tidak terdaftar pada perusahaan yang dipilih...";
+                    return response()->json($response->toArray(), 400);
+                }
+
+                if (!$instruktur->status_aktif) {
+                    $response->success = false;
+                    $response->message = "Data instruktur sudah tidak aktif...";
+                    return response()->json($response->toArray(), 400);
+                }
+            }
+
+            // Handle status update
+            if (isset($data['status']) && $data['status'] === true) {
+                $activeKelompok = KelompokBimbingan::where('id_siswa', $kelompokBimbingan->id_siswa)
+                    ->where('status', true)
+                    ->first();
+
+                if ($activeKelompok) {
+                    $activeKelompok->status = false;
+                    $activeKelompok->updated_by = auth()->user()->username;
+                    
+                    if (!$activeKelompok->save()) {
+                        DB::rollBack();
+                        $response->success = false;
+                        $response->message = "Internal Server Error";
+                        return response()->json($response->toArray(), 500);
+                    }
+                }
+            }
+
+            // Update Kelompok Bimbingan
+            $updateData = array_filter([
+                'id_guru_pembimbing' => $data['id_guru_pembimbing'] ?? null,
+                'id_perusahaan' => $data['id_perusahaan'] ?? null,
+                'id_instruktur' => $data['id_instruktur'] ?? null,
+                'status' => $data['status'] ?? null,
+                'updated_by' => auth()->user()->username
+            ]);
+
+            $kelompokBimbingan->update($updateData);
+
+            DB::commit();
+            $response->success = true;
+            $response->message = "Data Kelompok Bimbingan berhasil diubah...";
+            $response->data = $kelompokBimbingan->fresh();
+
+            return response()->json($response->toArray(), 200);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $response->success = false;
+            $response->message = "Internal Server Error";
+            return response()->json($response->toArray(), 500);
+        }
     }
 
     // Belva
     public function delete(Request $request)
     {
-        //
+        $response = new BaseResponse();
+        DB::beginTransaction();
+
+        try {
+            $validator = Validator::make($request->all(), [
+                'id' => 'required|string'
+            ]);
+
+            if ($validator->fails()) {
+                $response->success = false;
+                $response->message = $validator->errors()->first();
+                return response()->json($response->toArray(), 400);
+            }
+
+            $data = $validator->validated();
+
+            // Check if Kelompok Bimbingan exists
+            $kelompokBimbingan = KelompokBimbingan::find($data['id']);
+            if (!$kelompokBimbingan) {
+                $response->success = false;
+                $response->message = "Data Kelompok Bimbingan tidak ditemukan...";
+                return response()->json($response->toArray(), 404);
+            }
+
+            // Check related Absensi
+            $absensi = Absensi::where('id_bimbingan', $kelompokBimbingan->id)->first();
+            
+            // Check related Jurnal Harian
+            $jurnalHarian = JurnalHarian::where('id_bimbingan', $kelompokBimbingan->id)->first();
+
+            // Check if related data exists
+            if ($absensi || $jurnalHarian) {
+                $response->success = false;
+                $response->message = "Data ini masih menyimpan data absensi atau jurnal harian siswa...";
+                return response()->json($response->toArray(), 400);
+            }
+
+            // Delete Kelompok Bimbingan
+            if ($kelompokBimbingan->delete()) {
+                DB::commit();
+                $response->success = true;
+                $response->message = "Data kelompok bimbingan berhasil dihapus...";
+                return response()->json($response->toArray(), 200);
+            } else {
+                DB::rollBack();
+                $response->success = false;
+                $response->message = "Internal Server Error";
+                return response()->json($response->toArray(), 500);
+            }
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $response->success = false;
+            $response->message = "Internal Server Error";
+            return response()->json($response->toArray(), 500);
+        }
     }
 
     
