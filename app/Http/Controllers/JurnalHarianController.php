@@ -2,20 +2,83 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Guru;
+use App\Models\Jurnal;
+use App\Models\KelompokBimbingan;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+use Exception;
 
 class JurnalHarianController extends Controller
 {
-
     // @Shodiq
-    public function getForPembimbing()
+    //Mengambil Seluruh Jurnal harian bimbingannya
+    // logika nya:
+    // 1. Get data guru pembimbing where nip = request.usernameUser dari hasil setelah login
+    // 2. Get seluruh data kelompok bimbingan where id_guru_pembimbing sama dengan id guru setelah dapat data guru pada langkah no 1
+    // 3. setelah itu ambil semua data jurnal harian where(where nya berupa array) id_kelompok_bimbingan dari hasil yang didapat di langkah no 2 AND tanggal = request query tanggalnya
+    // 4. Sesuaikan hasil response dengan api yang udah ada sebelumnya.
+    public function getForPembimbing(Request $request)
     {
-        //Mengambil Seluruh Jurnal harian bimbingannya
-        // logika nya:
-        // 1. Get data guru pembimbing where nip = request.usernameUser dari hasil setelah login
-        // 2. Get seluruh data kelompok bimbingan where id_guru_pembimbing sama dengan id guru setelah dapat data guru pada langkah no 1
-        // 3. setelah itu ambil semua data jurnal harian where(where nya berupa array) id_kelompok_bimbingan dari hasil yang didapat di langkah no 2 AND tanggal = request query tanggalnya
-        // 4. Sesuaikan hasil response dengan api yang udah ada sebelumnya.
+        try {
+            // 1. Get data guru pembimbing berdasarkan NIP dari request (usernameUser)
+            $guruPembimbing = Guru::where('nip', $request->usernameUser)->first();
+            
+            if (!$guruPembimbing) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Guru pembimbing tidak ditemukan.',
+                ], 400);
+            }
+    
+            // 2. Get semua data kelompok bimbingan di mana id_guru_pembimbing sama dengan id guru yang didapatkan
+            $kelompokBimbinganIds = KelompokBimbingan::where('id_guru_pembimbing', $guruPembimbing->id)
+                // ->where('status', true)
+                ->pluck('id'); // Hanya mengambil ID kelompok bimbingan
+    
+            if ($kelompokBimbinganIds->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Kelompok bimbingan tidak ditemukan.',
+                ], 400);
+            }
+    
+            // 3. Get semua jurnal harian berdasarkan id_kelompok_bimbingan dan tanggal dari query
+            $tanggal = $request->query('tanggal');
+            if(!$tanggal){
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tanggal jurnal harus diisi.',
+                ], 400);
+            }
+            $jurnalHarian = Jurnal::whereIn('id_bimbingan', $kelompokBimbinganIds)
+                ->where('tanggal', $tanggal)
+                ->with([
+                    'kelompokBimbingan.siswa',
+                    'kelompokBimbingan.perusahaan'
+                ])
+                ->get();
+
+    
+            if ($jurnalHarian->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data jurnal harian tidak ditemukan.',
+                ], 400);
+            }
+    
+            // 4. Sesuaikan response dengan format API sebelumnya
+            return response()->json([
+                'success' => true,
+                'data' => $jurnalHarian
+            ], 200);
+        } catch (\Exception $e) {
+            // Handle error jika terjadi
+            return response()->json([
+                'success' => false,
+                'message' => 'Internal server error.',
+            ], 500);
+        }
     }
 
     // @Shodiq
@@ -28,6 +91,81 @@ class JurnalHarianController extends Controller
         // 4. Setelah itu bandingkan apakah id guru pada step no 2 sama dengan step nomor 3.
         // 5. kalau tidak bisa jangan berikan akses untuk edit data. LIAT CONTOH RESPONSE DI API LAMA
         // 6. kalau sukses, update data catatan_pembimbing di jurnalnya
+        try {
+            // Validasi input
+            $validator = Validator::make($request->all(), [
+                'id' => 'required|uuid',
+                'catatan' => 'required|string'
+            ]);
+            
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'there was something wrong with his request.',
+                ], 400);
+            }
+            
+            $data = $validator->validated();
+            
+            // 1. Cari jurnal berdasarkan id yang diinputkan
+            $jurnal = Jurnal::where("id", $data['id'])->first();
+            
+            if (!$jurnal) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Jurnal tidak ditemukan.',
+                ], 400);
+            }
+    
+            // 2. Get data kelompok bimbingan berdasarkan id_kelompok_bimbingan dari jurnal tersebut
+            $kelompokBimbingan = KelompokBimbingan::where('id', $jurnal->id_bimbingan)
+                ->first();
+
+            if (!$kelompokBimbingan) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Kelompok bimbingan tidak ditemukan.',
+                ], 400);
+            }
+    
+            // 3. Cari data guru pembimbing berdasarkan nip = request.usernameUser
+            $guru = Guru::where('nip', $request->usernameUser)->first();
+    
+            if (!$guru) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Guru pembimbing tidak ditemukan.',
+                ], 400);
+            }
+    
+            // 4. Bandingkan apakah id guru pada step no 2 sama dengan step nomor 3
+            if ($kelompokBimbingan->id_guru_pembimbing !== $guru->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda tidak memiliki akses untuk mengedit data ini.',
+                ], 400);
+            }
+    
+            // 5. Jika validasi berhasil, update data catatan_pembimbing di jurnalnya
+            $jurnal->update([
+                'catatan_pembimbing' => $data['catatan']
+            ]);
+    
+            // 6. Response sukses
+            return response()->json([
+                'success' => true,
+                'message' => 'Catatan pembimbing berhasil ditambahkan.',
+                'data' => $jurnal,
+            ], 200);
+    
+        } catch (Exception $e) {
+            // Handle error jika terjadi
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan pada server.',
+                'details' => $e->getMessage(),
+            ], 500);
+        }
     }
 
     // @Shodiq
@@ -35,5 +173,70 @@ class JurnalHarianController extends Controller
     {
         // logikanya:
         // 1. sama seperti addCatatanPembimbing, tapi ini update statusnya
+        try {
+            // Validasi input
+            $request->validate([
+                'id_jurnal' => 'required|exists:jurnal,id',
+                'status' => 'required|in:Menunggu, Diterima, Ditolak', // Sesuaikan dengan status yang diperbolehkan
+            ]);
+    
+            // 1. Cari jurnal berdasarkan id yang diinputkan
+            $jurnal = Jurnal::find($request->id_jurnal);
+    
+            if (!$jurnal) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Jurnal tidak ditemukan.',
+                ], 400);
+            }
+    
+            // 2. Get data kelompok bimbingan berdasarkan id_kelompok_bimbingan dari jurnal tersebut
+            $kelompokBimbingan = $jurnal->kelompokBimbingan;
+    
+            if (!$kelompokBimbingan) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Kelompok bimbingan tidak ditemukan.',
+                ], 400);
+            }
+    
+            // 3. Cari data guru pembimbing berdasarkan nip = request.usernameUser
+            $guru = Guru::where('nip', $request->usernameUser)->first();
+    
+            if (!$guru) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Guru pembimbing tidak ditemukan.',
+                ], 400);
+            }
+    
+            // 4. Bandingkan apakah id guru pada step no 2 sama dengan step nomor 3
+            if ($kelompokBimbingan->id_guru_pembimbing !== $guru->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda tidak memiliki akses untuk mengubah status jurnal ini.',
+                ], 400);
+            }
+    
+            // 5. Jika validasi berhasil, update data status di jurnalnya
+            $jurnal->update([
+                'status' => $request->status,
+            ]);
+    
+            // 6. Response sukses
+            return response()->json([
+                'success' => true,
+                'message' => 'Status jurnal berhasil diperbarui.',
+                'data' => $jurnal,
+            ], 200);
+    
+        } catch (\Exception $e) {
+            // Handle error jika terjadi
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan pada server.',
+                'details' => $e->getMessage(),
+            ], 500);
+        }
     }
 }

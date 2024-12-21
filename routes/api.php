@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\JurusanController;
 use App\Http\Controllers\KelompokBimbinganController;
+use App\Http\Controllers\JurnalHarianController;
 use App\Http\Controllers\PerusahaanController;
 use App\Http\Controllers\TahunAjaranController;
 use App\Http\Middleware\CheckToken;
@@ -49,3 +50,11 @@ Route::prefix('perusahaan')->middleware([CheckToken::class])->group(function () 
     Route::post('/create', [PerusahaanController::class, 'store'])->middleware([CheckUserRole::class.':ADMINSEKOLAH']);
     Route::put('/update', [PerusahaanController::class, 'update'])->middleware([CheckUserRole::class.':ADMINSEKOLAH']);
 });
+
+Route::prefix('jurnal-harian')->middleware([CheckToken::class])->group(function () {
+    Route::get('/bimbingan/get', [JurnalHarianController::class, 'getForPembimbing'])->middleware([CheckUserRole::class.':PEMBIMBING']);
+    Route::post('/bimbingan/postCatatan', [JurnalHarianController::class, 'addCatatanPembimbing'])->middleware([CheckUserRole::class.':PEMBIMBING']);
+});
+
+
+
