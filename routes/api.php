@@ -64,5 +64,5 @@ Route::prefix('nilai-akhir')->middleware([CheckToken::class])->group(function ()
 });
 
 Route::prefix('absensi')->middleware([CheckToken::class])->group(function () {
-    Route::get('/get', [PresensiController::class, 'getPresensiForPembimbing'])->middleware([CheckUserRole::class . ':PEMBIMBING']);
+    Route::get('/get/pembimbing', [PresensiController::class, 'getPresensiForPembimbing'])->middleware([CheckUserRole::class . ':PEMBIMBING']);
 });

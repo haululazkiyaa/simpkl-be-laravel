@@ -13,67 +13,92 @@ class PresensiController extends Controller
     // @Fazlur
     public function getPresensiForPembimbing(Request $request)
     {
+        $result = [
+            'success' => false,
+            'message' => '',
+            'data' => null
+        ];
+
+        // Validate "tanggal" parameter
         $tanggal = $request->query('tanggal');
         if (!$tanggal) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tanggal harus disertakan dalam permintaan.'
-            ], 400);
+            $result['message'] = 'Parameter tanggal harus diisi...';
+            return response()->json($result, 400);
         }
 
-        $nip = $request->usernameUser; 
-        $guru = Guru::where('nip', $nip)->first();
-    
-        if (!$guru) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Data guru pembimbing tidak ditemukan.'
-            ], 404); 
+        $tanggal = date('Y-m-d', strtotime($tanggal));
+
+        // Get Guru Pembimbing by NIP
+        $guruPembimbing = Guru::where('nip', $request->usernameUser)->first();
+
+        if (!$guruPembimbing) {
+            $result['message'] = 'Guru Pembimbing tidak ditemukan';
+            return response()->json($result, 404);
         }
-        
-        $kelompokBimbingan = KelompokBimbingan::where('id_guru_pembimbing', $guru->id)->get();
-        
+
+        $idGuruPembimbing = $guruPembimbing->id;
+
+        // Get Kelompok Bimbingan data
+        $kelompokBimbingan = KelompokBimbingan::where('id_guru_pembimbing', $idGuruPembimbing)->get();
+
         if ($kelompokBimbingan->isEmpty()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Data kelompok bimbingan tidak ditemukan.'
-            ], 404); 
+            $result['message'] = 'Data Kelompok Bimbingan Tidak Ditemukan';
+            return response()->json($result, 404);
         }
-        
-        $idKelompok = KelompokBimbingan::where('id_guru_pembimbing', $guru->id)
-                ->pluck('id'); 
 
-                return $idKelompok;
-        $presensi = Absensi::whereIn('id_bimbingan', $idKelompok)
-                            ->where('tanggal', $tanggal)
-                            ->get();
-    
-        if ($presensi->isNotEmpty()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Data presensi berhasil ditemukan.',
-                'data' => $presensi
-            ]);
+        // Prepare WHERE clause for Absensi
+        $where = [
+            'tanggal' => $tanggal
+        ];
+
+        if ($kelompokBimbingan->count() > 1) {
+            $where['id_bimbingan'] = $kelompokBimbingan->pluck('id')->toArray();
+        } else {
+            $where['id_bimbingan'] = $kelompokBimbingan->first()->id;
         }
-    
-        $hasilPresensi = [];
-        foreach ($kelompokBimbingan as $kelompok) {
-            $jurnal = Jurnal::where('id_bimbingan', $kelompok->id)
-                                  ->where('tanggal', $tanggal)
-                                  ->first();
-    
-            $hasilPresensi[] = [
-                'id_kelompok_bimbingan' => $kelompok->id,
-                'nama_kelompok' => $kelompok->nama_kelompok,
-                'status' => $jurnal ? 'HADIR' : 'ALPA'
+
+        // Search Absensi data
+        $absensi = Absensi::with(['kelompok_bimbingan.siswa'])
+            ->where($where)
+            ->orderBy('tanggal', 'asc')
+            ->get();
+
+        if ($absensi->isNotEmpty()) {
+            $result['success'] = true;
+            $result['message'] = 'Data absensi berhasil ditampilkan...';
+            $result['data'] = $absensi;
+            return response()->json($result, 200);
+        }
+
+        // If no Absensi data, check Jurnal Harian
+        $dataResponse = [];
+
+        foreach ($kelompokBimbingan as $bimbingan) {
+            $jurnal = Jurnal::where([
+                'id_bimbingan' => $bimbingan->id,
+                'tanggal' => $tanggal
+            ])->first();
+
+            $dataResponse[] = [
+                'id_bimbingan' => $bimbingan->id,
+                'tanggal' => $tanggal,
+                'status' => $jurnal ? 'HADIR' : 'ALPA',
+                'kelompok_bimbingan' => [
+                    'id' => $bimbingan->id,
+                    'siswa' => [
+                        'id' => $bimbingan->siswa->id,
+                        'nis' => $bimbingan->siswa->nis,
+                        'nisn' => $bimbingan->siswa->nisn,
+                        'nama' => $bimbingan->siswa->nama,
+                    ]
+                ]
             ];
         }
-    
-        return response()->json([
-            'success' => true,
-            'message' => 'Data presensi dihitung berdasarkan jurnal harian.',
-            'data' => $hasilPresensi
-        ]);
+
+        $result['success'] = true;
+        $result['message'] = 'Data absensi berhasil ditampilkan...';
+        $result['data'] = $dataResponse;
+        return response()->json($result, 200);
     }
     
 }
