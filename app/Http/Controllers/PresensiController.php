@@ -71,7 +71,7 @@ class PresensiController extends Controller
             $dataResponse[] = [
                 'id_bimbingan' => $bimbingan->id,
                 'tanggal' => $tanggal,
-                'status' => $jurnal ? 'HADIR' : 'ALPA',
+                'status' => $jurnal ? 'Hadir' : 'Alpa',
                 'kelompok_bimbingan' => [
                     'id' => $bimbingan->id,
                     'siswa' => [
