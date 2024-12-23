@@ -21,11 +21,10 @@ class NilaiAkhirController extends Controller
     {
         try {
             $idSiswa = $request->query('id_siswa');
-            $response = Http::get("{$this->nodejsUrl}/nilai-akhir", [
-                'query' => [
-                    'id_siswa' => $idSiswa
-                ]
-            ]);
+            $response = Http::withHeaders([
+                'Authorization' => $request->header('Authorization'),
+            ])->get("{$this->nodejsUrl}/nilai-akhir?id_siswa=$idSiswa");
+
             return $response->json();
         } catch (Exception $e) {
             return response()->json([
@@ -36,10 +35,12 @@ class NilaiAkhirController extends Controller
         }
     }
 
-    public function getSiswa()
+    public function getSiswa(Request $request)
     {
         try {
-            $response = Http::get("{$this->nodejsUrl}/nilai-akhir/siswa");
+            $response = Http::withHeaders([
+                'Authorization' => $request->header('Authorization'),
+            ])->get("{$this->nodejsUrl}/nilai-akhir/siswa");
             return $response->json();
         } catch (Exception $e) {
             return response()->json([
@@ -56,8 +57,6 @@ class NilaiAkhirController extends Controller
 
         try {
             $validator = Validator::make($request->all(), [
-                'judul' => 'required|string',
-                'kelompok_penilaian' => 'required|string',
                 'id_siswa' => 'required|uuid',
                 'data' => 'required|array',
                 'data.*.id_aspek_penilaian' => 'required|uuid',
@@ -75,15 +74,17 @@ class NilaiAkhirController extends Controller
 
             $data = $validator->validated();
 
-            $response = Http::post("{$this->nodejsUrl}/nilai-akhir/create", [
-                'judul' => $data['judul'],
-                'kelompok_penilaian' => $data['kelompok_penilaian']
+            $response = Http::withHeaders([
+                'Authorization' => $request->header('Authorization'),
+            ])->post("{$this->nodejsUrl}/nilai-akhir/create", [
+                'id_siswa' => $data['id_siswa'],
+                'data' => $data['data']
             ]);
 
             return response()->json($response->json(), $response->status());
         } catch (Exception $e) {
             $response->success = false;
-            $response->message = "Internal Server Error";
+            $response->message = $e->getMessage();
             return response()->json($response->toArray(), 500);
         }
     }
