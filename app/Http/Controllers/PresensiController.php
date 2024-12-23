@@ -7,6 +7,7 @@ use App\Models\Guru;
 use App\Models\Jurnal;
 use App\Models\KelompokBimbingan;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class PresensiController extends Controller
 {
@@ -46,22 +47,10 @@ class PresensiController extends Controller
             return response()->json($result, 404);
         }
 
-        // Prepare WHERE clause for Absensi
-        $where = [
-            'tanggal' => $tanggal
-        ];
-
-        if ($kelompokBimbingan->count() > 1) {
-            $where['id_bimbingan'] = $kelompokBimbingan->pluck('id')->toArray();
-        } else {
-            $where['id_bimbingan'] = $kelompokBimbingan->first()->id;
-        }
-
-        // Search Absensi data
         $absensi = Absensi::with(['kelompok_bimbingan.siswa'])
-            ->where($where)
-            ->orderBy('tanggal', 'asc')
-            ->get();
+            ->where('tanggal', $tanggal)
+            ->whereIn('id_bimbingan', $kelompokBimbingan->pluck('id')->toArray())
+            ->orderBy('tanggal', 'asc')->get();
 
         if ($absensi->isNotEmpty()) {
             $result['success'] = true;
@@ -101,4 +90,78 @@ class PresensiController extends Controller
         return response()->json($result, 200);
     }
     
+    public function storeAbsensiPembimbing(Request $request)
+    {
+        $result = [
+            'success' => false,
+            'message' => '',
+            'data' => null
+        ];
+
+        // Validation Schema
+        $validator = Validator::make($request->all(), [
+            'tanggal' => 'required|date',
+            'data' => 'required|array',
+            'data.*.id_bimbingan' => 'required|string',
+            'data.*.status' => 'required|string|in:Hadir,Libur,Sakit,Alpha,Izin'
+        ]);
+
+        if ($validator->fails()) {
+            $result['message'] = $validator->errors()->first();
+            $result['data'] = $validator->errors();
+            return response()->json($result, 400);
+        }
+
+        $tanggal = $request->input('tanggal');
+        $data = $request->input('data');
+
+        // Check Guru Pembimbing
+        $guruPembimbing = Guru::where('nip', $request->usernameUser)->first();
+
+        if (!$guruPembimbing) {
+            $result['message'] = 'Guru Pembimbing tidak ditemukan';
+            return response()->json($result, 404);
+        }
+
+        $userId = $guruPembimbing->id;
+
+        // Validate each bimbingan
+        foreach ($data as $element) {
+            $kelompokBimbingan = KelompokBimbingan::find($element['id_bimbingan']);
+
+            if (!$kelompokBimbingan) {
+                $result['message'] = 'Salah satu data bimbingan tidak ditemukan...';
+                return response()->json($result, 404);
+            }
+
+            if ($kelompokBimbingan->id_guru_pembimbing !== $userId) {
+                $result['message'] = 'Anda tidak bisa mengakses salah satu data bimbingan...';
+                return response()->json($result, 403);
+            }
+        }
+
+        // Bulk insert absensi
+        $absensiData = [];
+        foreach ($data as $element) {
+            $absensiData[] = [
+                'tanggal' => $tanggal,
+                'id_bimbingan' => $element['id_bimbingan'],
+                'status' => $element['status'],
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        $createdAbsensi = Absensi::insert($absensiData);
+
+        if ($createdAbsensi) {
+            $result['success'] = true;
+            $result['message'] = 'Absensi bimbingan berhasil disimpan...';
+            $result['data'] = $absensiData;
+            return response()->json($result, 201);
+        } else {
+            $result['message'] = 'Internal Server Error';
+            return response()->json($result, 500);
+        }
+    }
 }
