@@ -89,7 +89,7 @@ class PresensiController extends Controller
         $result['data'] = $dataResponse;
         return response()->json($result, 200);
     }
-    
+
     public function storeAbsensiPembimbing(Request $request)
     {
         $result = [
@@ -143,18 +143,28 @@ class PresensiController extends Controller
         // Bulk insert absensi
         $absensiData = [];
         foreach ($data as $element) {
-            $absensiData[] = [
-                'tanggal' => $tanggal,
-                'id_bimbingan' => $element['id_bimbingan'],
-                'status' => $element['status'],
-                'created_at' => now(),
-                'updated_at' => now(),
-            ];
+            $absensi = Absensi::where('tanggal', $tanggal)
+                ->where('id_bimbingan', $element['id_bimbingan'])
+                ->first();
+
+            if ($absensi) {
+                // If absensi exists, update the status
+                $absensi->update([
+                    'status' => $element['status'],
+                    'updated_at' => now(),
+                ]);
+                $absensiData[] = $absensi; // Store updated absensi data
+            } else {
+                // If absensi does not exist, create a new record
+                $absensiData[] = Absensi::create([
+                    'tanggal' => $tanggal,
+                    'id_bimbingan' => $element['id_bimbingan'],
+                    'status' => $element['status'],
+                ]);
+            }
         }
 
-        $createdAbsensi = Absensi::insert($absensiData);
-
-        if ($createdAbsensi) {
+        if ($absensiData) {
             $result['success'] = true;
             $result['message'] = 'Absensi bimbingan berhasil disimpan...';
             $result['data'] = $absensiData;
