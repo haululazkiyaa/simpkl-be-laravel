@@ -289,32 +289,35 @@ class KelompokBimbinganController extends Controller
             }
 
             // Handle status update
-            if (isset($data['status']) && $data['status'] === true) {
-                $activeKelompok = KelompokBimbingan::where('id_siswa', $kelompokBimbingan->id_siswa)
-                    ->where('status', true)
-                    ->first();
-
-                if ($activeKelompok) {
-                    $activeKelompok->status = false;
-                    $activeKelompok->updated_by = $request->usernameUser;
-                    
-                    if (!$activeKelompok->save()) {
-                        DB::rollBack();
-                        $response->success = false;
-                        $response->message = "Internal Server Error";
-                        return response()->json($response->toArray(), 500);
+            if (isset($data['status'])) {  // Hapus pengecekan === true agar bisa mengubah ke false juga
+                if ($data['status'] === true) {  // Jika status diubah ke true
+                    $activeKelompok = KelompokBimbingan::where('id_siswa', $kelompokBimbingan->id_siswa)
+                        ->where('status', true)
+                        ->where('id', '!=', $data['id'])  // Tambahkan ini agar tidak mengecek data yang sedang diupdate
+                        ->first();
+            
+                    if ($activeKelompok) {
+                        $activeKelompok->status = false;
+                        $activeKelompok->updated_by = $request->usernameUser;
+                        
+                        if (!$activeKelompok->save()) {
+                            DB::rollBack();
+                            $response->success = false;
+                            $response->message = "Internal Server Error";
+                            return response()->json($response->toArray(), 500);
+                        }
                     }
                 }
             }
 
             // Update Kelompok Bimbingan
-            $updateData = array_filter([
-                'id_guru_pembimbing' => $data['id_guru_pembimbing'] ?? null,
-                'id_perusahaan' => $data['id_perusahaan'] ?? null,
-                'id_instruktur' => $data['id_instruktur'] ?? null,
-                'status' => $data['status'] ?? null,
+            $updateData = [  // Hapus array_filter agar nilai false tetap masuk
+                'id_guru_pembimbing' => $data['id_guru_pembimbing'] ?? $kelompokBimbingan->id_guru_pembimbing,
+                'id_perusahaan' => $data['id_perusahaan'] ?? $kelompokBimbingan->id_perusahaan,
+                'id_instruktur' => $data['id_instruktur'] ?? $kelompokBimbingan->id_instruktur,
+                'status' => $data['status'] ?? $kelompokBimbingan->status,
                 'updated_by' => $request->usernameUser
-            ]);
+            ];
             
             $kelompokBimbingan->update($updateData);
 

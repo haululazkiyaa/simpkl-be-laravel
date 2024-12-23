@@ -6,6 +6,7 @@ use App\Http\Controllers\KelompokBimbinganController;
 use App\Http\Controllers\JurnalHarianController;
 use App\Http\Controllers\NilaiAkhirController;
 use App\Http\Controllers\PerusahaanController;
+use App\Http\Controllers\PresensiController;
 use App\Http\Controllers\TahunAjaranController;
 use App\Http\Middleware\CheckToken;
 use App\Http\Middleware\CheckUserRole;
@@ -60,4 +61,9 @@ Route::prefix('nilai-akhir')->middleware([CheckToken::class])->group(function ()
     Route::get('', [NilaiAkhirController::class, 'getPembimbing'])->middleware([CheckUserRole::class . ':PEMBIMBING']);
     Route::post('/create', [NilaiAkhirController::class, 'gradePembimbing'])->middleware([CheckUserRole::class . ':PEMBIMBING']);
     Route::get('/siswa', [NilaiAkhirController::class, 'getSiswa'])->middleware([CheckUserRole::class . ':SISWA']);
+});
+
+Route::prefix('absensi')->middleware([CheckToken::class])->group(function () {
+    Route::get('/get/pembimbing', [PresensiController::class, 'getPresensiForPembimbing'])->middleware([CheckUserRole::class . ':PEMBIMBING']);
+    Route::post('/submit', [PresensiController::class, 'storeAbsensiPembimbing'])->middleware([CheckUserRole::class . ':PEMBIMBING']);
 });

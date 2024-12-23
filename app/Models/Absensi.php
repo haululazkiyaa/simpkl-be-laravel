@@ -27,4 +27,9 @@ class Absensi extends Model
     protected $table = 'absensi';
     public $incrementing = false;
     protected $keyType = 'string';
+
+    public function kelompok_bimbingan()
+    {
+        return $this->belongsTo(KelompokBimbingan::class, 'id_bimbingan');
+    }
 }
