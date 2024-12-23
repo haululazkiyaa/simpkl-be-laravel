@@ -57,7 +57,7 @@ Route::prefix('jurnal-harian')->middleware([CheckToken::class])->group(function 
 });
 
 Route::prefix('nilai-akhir')->middleware([CheckToken::class])->group(function () {
-    Route::get('', [NilaiAkhirController::class, 'pembimbing'])->middleware([CheckUserRole::class . ':PEMBIMBING']);
-    Route::post('', [NilaiAkhirController::class, 'create'])->middleware([CheckUserRole::class . ':PEMBIMBING']);
-    Route::get('/siswa', [NilaiAkhirController::class, 'siswa'])->middleware([CheckUserRole::class . ':SISWA']);
+    Route::get('', [NilaiAkhirController::class, 'getPembimbing'])->middleware([CheckUserRole::class . ':PEMBIMBING']);
+    Route::post('', [NilaiAkhirController::class, 'gradePembimbing'])->middleware([CheckUserRole::class . ':PEMBIMBING']);
+    Route::get('/siswa', [NilaiAkhirController::class, 'getSiswa'])->middleware([CheckUserRole::class . ':SISWA']);
 });

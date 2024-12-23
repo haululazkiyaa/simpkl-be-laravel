@@ -17,7 +17,7 @@ class NilaiAkhirController extends Controller
         $this->nodejsUrl = config('app.nodejs_api_url');
     }
 
-    public function pembimbing(Request $request)
+    public function getPembimbing(Request $request)
     {
         try {
             $idSiswa = $request->query('id_siswa');
@@ -36,7 +36,7 @@ class NilaiAkhirController extends Controller
         }
     }
 
-    public function siswa()
+    public function getSiswa()
     {
         try {
             $response = Http::get("{$this->nodejsUrl}/nilai-akhir/siswa");
@@ -50,7 +50,7 @@ class NilaiAkhirController extends Controller
         }
     }
 
-    public function create(Request $request)
+    public function gradePembimbing(Request $request)
     {
         $response = new BaseResponse();
 
