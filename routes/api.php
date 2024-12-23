@@ -55,6 +55,7 @@ Route::prefix('perusahaan')->middleware([CheckToken::class])->group(function () 
 Route::prefix('jurnal-harian')->middleware([CheckToken::class])->group(function () {
     Route::get('/bimbingan/get', [JurnalHarianController::class, 'getForPembimbing'])->middleware([CheckUserRole::class . ':PEMBIMBING']);
     Route::post('/bimbingan/postCatatan', [JurnalHarianController::class, 'addCatatanPembimbing'])->middleware([CheckUserRole::class . ':PEMBIMBING']);
+    Route::post('/bimbingan/status', [JurnalHarianController::class, 'setStatus'])->middleware([CheckUserRole::class . ':PEMBIMBING']);
 });
 
 Route::prefix('nilai-akhir')->middleware([CheckToken::class])->group(function () {

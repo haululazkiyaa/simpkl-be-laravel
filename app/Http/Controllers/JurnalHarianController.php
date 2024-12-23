@@ -175,10 +175,20 @@ class JurnalHarianController extends Controller
         // 1. sama seperti addCatatanPembimbing, tapi ini update statusnya
         try {
             // Validasi input
-            $request->validate([
-                'id_jurnal' => 'required|exists:jurnal,id',
-                'status' => 'required|in:Menunggu, Diterima, Ditolak', // Sesuaikan dengan status yang diperbolehkan
+            $validator = Validator::make($request->all(), [
+                'id_jurnal' => 'required|uuid',
+                'status' => 'required|string|in:Diterima,Ditolak'
             ]);
+            
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'there was something wrong with his request.',
+                    'error' => $validator->errors()
+                ], 400);
+            }
+            
+            $data = $validator->validated();
     
             // 1. Cari jurnal berdasarkan id yang diinputkan
             $jurnal = Jurnal::find($request->id_jurnal);

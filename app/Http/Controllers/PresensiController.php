@@ -103,7 +103,7 @@ class PresensiController extends Controller
             'tanggal' => 'required|date',
             'data' => 'required|array',
             'data.*.id_bimbingan' => 'required|string',
-            'data.*.status' => 'required|string|in:Hadir,Libur,Sakit,Alpha,Izin'
+            'data.*.status' => 'required|string|in:Hadir,Libur,Sakit,Alpa,Izin'
         ]);
 
         if ($validator->fails()) {
