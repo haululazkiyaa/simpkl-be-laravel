@@ -5,12 +5,21 @@ namespace App\Http\Controllers;
 use App\Models\Guru;
 use App\Models\Jurnal;
 use App\Models\KelompokBimbingan;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Http;
 use Exception;
 
 class JurnalHarianController extends Controller
 {
+    private $nodejsUrl;
+
+    public function __construct()
+    {
+        $this->nodejsUrl = config('app.nodejs_api_url');
+    }
+
     // @Shodiq
     //Mengambil Seluruh Jurnal harian bimbingannya
     // logika nya:
@@ -150,6 +159,19 @@ class JurnalHarianController extends Controller
             $jurnal->update([
                 'catatan_pembimbing' => $data['catatan']
             ]);
+
+            $dataUser = User::join('siswa', 'siswa.nisn', '=', 'user.username')
+                ->where('siswa.id', $kelompokBimbingan->id_siswa)
+                ->first();
+
+            if ($dataUser && $dataUser->message_token) {
+                // Kirim notifikasi
+                Http::post("{$this->nodejsUrl}/send-notification", [
+                    'token' => $dataUser->message_token,
+                    'title' => "Catatan Pembimbing",
+                    'body' => $data['catatan']
+                ]);
+            }
     
             // 6. Response sukses
             return response()->json([
@@ -232,6 +254,27 @@ class JurnalHarianController extends Controller
             $jurnal->update([
                 'status' => $request->status,
             ]);
+
+            $dataUser = User::join('siswa', 'siswa.nisn', '=', 'user.username')
+                ->where('siswa.id', $kelompokBimbingan->id_siswa)
+                ->first();
+
+            if ($dataUser && $dataUser->message_token) {
+                // Kirim notifikasi
+                if($request->status == "Diterima"){
+                    $title = "Jurnal Diterima";
+                    $body = "Selamat, Jurnal Anda Diterima oleh Pembimbing";
+                }else{
+                    $title = "Jurnal Ditolak";
+                    $body = "Yaah, Jurnal Anda Ditolak oleh Pembimbing :(";
+                }
+
+                Http::post("{$this->nodejsUrl}/send-notification", [
+                    'token' => $dataUser->message_token,
+                    'title' => $title,
+                    'body' => $body
+                ]);
+            }
     
             // 6. Response sukses
             return response()->json([
